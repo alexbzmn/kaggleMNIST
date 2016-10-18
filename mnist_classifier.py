@@ -1,5 +1,7 @@
 from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow as tf
+import import_data as imp
+import numpy as np
 
 
 def weight_variable(shape):
@@ -20,7 +22,7 @@ def max_pool_2x2(x):
     return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
 
 
-mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
+# mnist = input_data.read_data_sets("MNIST_data/", one_hot=True)
 
 x = tf.placeholder(tf.float32, [None, 784])
 W = tf.Variable(tf.zeros([784, 10]))
@@ -70,13 +72,50 @@ correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 sess.run(tf.initialize_all_variables())
 
-for i in range(20000):
-    batch = mnist.train.next_batch(50)
-    if i % 100 == 0:
-        train_accuracy = accuracy.eval(feed_dict={
-            x: batch[0], y_: batch[1], keep_prob: 1.0})
-        print("step %d, training accuracy %g" % (i, train_accuracy))
-    train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+# read features & labels
+######################################
+features = imp.read_features_from_csv('data/train.csv')
+labels = imp.read_labels_from_csv('data/train.csv')
 
-print("test accuracy %g" % accuracy.eval(feed_dict={
-    x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
+TRAIN_SPLIT = 0.85  # training/validation split
+BATCH_SIZE = 50
+TRAINING_STEPS = int(len(features) * TRAIN_SPLIT / BATCH_SIZE * 33)
+
+# split data into training and validation sets
+train_samples = int(len(features) / (1 / TRAIN_SPLIT))
+train_features = features[:train_samples]
+train_labels = labels[:train_samples]
+validation_features = features[train_samples:]
+validation_labels = labels[train_samples:]
+
+for i in range(TRAINING_STEPS):
+    batch_features, batch_labels = imp.generate_batch(train_features, train_labels, BATCH_SIZE)
+    if i == 0 or (i + 1) % (TRAINING_STEPS // 33) == 0 or (i + 1) == TRAINING_STEPS:
+        val_features, val_labels = imp.generate_batch(validation_features, validation_labels, BATCH_SIZE)
+        train_accuracy = accuracy.eval(feed_dict={
+            x: val_features, y_: val_labels, keep_prob: 1.0})
+        print('step', i + 1, 'of', TRAINING_STEPS, '/ validation accuracy:', train_accuracy)
+    train_step.run(feed_dict={x: batch_features, y_: batch_labels, keep_prob: 0.5})
+
+test_features = imp.read_features_from_csv('data/test.csv', usecols=None)
+readout = sess.run(y, feed_dict={x: test_features, keep_prob: 1.0})
+readout = np.argmax(readout, axis=1)
+
+readout = [np.arange(1, 1 + len(readout)), readout]
+readout = np.transpose(readout)
+
+# write to csv file
+np.savetxt('submission-mnist.csv', readout, fmt='%i,%i', header='ImageId,Label', comments='')
+######################################
+
+
+# for i in range(20000):
+#     batch = mnist.train.next_batch(50)
+#     if i % 100 == 0:
+#         train_accuracy = accuracy.eval(feed_dict={
+#             x: batch[0], y_: batch[1], keep_prob: 1.0})
+#         print("step %d, training accuracy %g" % (i, train_accuracy))
+#     train_step.run(feed_dict={x: batch[0], y_: batch[1], keep_prob: 0.5})
+#
+# print("test accuracy %g" % accuracy.eval(feed_dict={
+#     x: mnist.test.images, y_: mnist.test.labels, keep_prob: 1.0}))
