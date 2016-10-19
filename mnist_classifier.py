@@ -2,7 +2,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 import tensorflow as tf
 import import_data as imp
 import numpy as np
-
+import matplotlib.pyplot as plt
 
 def weight_variable(shape):
     initial = tf.truncated_normal(shape, stddev=0.1)
@@ -70,6 +70,8 @@ cross_entropy = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(y_conv, y
 train_step = tf.train.AdamOptimizer(1e-4).minimize(cross_entropy)
 correct_prediction = tf.equal(tf.argmax(y_conv, 1), tf.argmax(y_, 1))
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+readout_func = tf.nn.softmax(y_conv + b_fc2)
 sess.run(tf.initialize_all_variables())
 
 # read features & labels
